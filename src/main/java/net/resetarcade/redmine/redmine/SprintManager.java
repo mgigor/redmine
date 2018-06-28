@@ -7,9 +7,13 @@ import com.taskadapter.redmineapi.Params;
 import com.taskadapter.redmineapi.RedmineException;
 import com.taskadapter.redmineapi.RedmineManager;
 import com.taskadapter.redmineapi.bean.CustomField;
+import com.taskadapter.redmineapi.bean.CustomFieldFactory;
 import com.taskadapter.redmineapi.bean.Issue;
+import com.taskadapter.redmineapi.bean.IssueFactory;
+import com.taskadapter.redmineapi.bean.TrackerFactory;
 
-import net.resetarcade.redmine.Config.RedmineConfig;
+import ch.qos.logback.core.net.SyslogOutputStream;
+import net.resetarcade.redmine.config.RedmineConfig;
 
 public class SprintManager {
 
@@ -104,15 +108,54 @@ public class SprintManager {
 	}
 	
 	public Integer generateSprintEndSummary() throws RedmineException {
-		List<Issue> issues = getIssues(new Params());
+		
+		StringBuilder model = new StringBuilder("");
+		model.append("h1. !{width:80px}https://image.ibb.co/frsOuo/logo_Game_Time_1.png! | "+ this.currentSprint +" \n");
+		model.append("\n");
+		model.append("h2. Sprint Retrospective Meeting\n");
+		model.append("\n");
+		model.append("h3. Tasks summary:\n");
+		model.append("\n");
+		model.append("|*_#Id _*|*_Tracker_*|*_Status_*|*Subject*|*_Asignee_*| \n");
+		
+		List<Issue> issues = getIssues(new Params()
+				.add("status_id", "*"));
+		Boolean hasStatus7 = false;
 		
 		for (Issue issue : issues) {
 			
+			String colorStatus = "";
+			if(issue.getStatusId() == 7) {
+				colorStatus = "%{color:red}";
+				hasStatus7 = true;
+			}
+			
+			model.append("|#" + issue.getId() + 
+						 "|"  + issue.getTracker().getName() +
+						 "|"  + colorStatus + issue.getStatusName() +
+						 "|"  + issue.getSubject() +
+						 "|"  + issue.getAssigneeName() );
+			
+			model.append("| \n");
 		}
 		
-		Issue issue = redmine.getIssueManager().getIssueById(12475);
-		System.out.println(issue.getDescription());
+		if(hasStatus7) {
+			model.append("h3. Nao entregue (reason):");
+			model.append("\n");
+		}
 		
+		
+		Issue issue = IssueFactory.create(new Integer(projectId), currentSprint + " Issues Retrospective Meeting");
+		issue.setDescription(model.toString());
+		issue.addCustomField(CustomFieldFactory.create(3, "Sprint", this.currentSprint));
+		issue.setTracker(TrackerFactory.create(3));
+		Integer issueCreatedId = redmine.getIssueManager().createIssue(issue).getId();
+		Issue issueCreated = redmine.getIssueManager().getIssueById(issueCreatedId);
+		
+		issueCreated.setStatusId(2);
+		redmine.getIssueManager().update(issueCreated);
+		issueCreated.setStatusId(5);
+		redmine.getIssueManager().update(issueCreated);	
 		return null;
 		
 	}
